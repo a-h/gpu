@@ -14,6 +14,8 @@ import (
 var source string
 
 func main() {
+	gpu.Compile(source)
+
 	f, err := os.Open("puppy-g7b38fec9b_1920.jpg")
 	if err != nil {
 		log.Fatalf("failed to read puppy JPEG: %v", err)
@@ -43,7 +45,6 @@ func main() {
 
 	// Configure the output.
 	output := gpu.NewMatrix[uint8](bounds.Dx()*stride, bounds.Dy(), 1)
-	gpu.Setup(source, input.Data, output.Data)
 
 	// Run the processing.
 	gpu.Run(input, output)

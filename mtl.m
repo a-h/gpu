@@ -7,7 +7,7 @@ id<MTLDevice> device;
 id<MTLComputePipelineState> pipelineState;
 id<MTLCommandQueue> commandQueue;
 
-void setup(char *source) {
+void compile(char *source) {
   device = MTLCreateSystemDefaultDevice();
   // NSLog(@"Using default device %s", [device.name UTF8String]);
 
@@ -53,12 +53,11 @@ id<MTLBuffer> bufferInput;
 id<MTLBuffer> bufferOutput;
 
 void createBuffers(void* in, int in_data_size_bytes, int in_array_size, 
-    void* out, int out_data_size_bytes, int out_array_size) {
+    int out_data_size_bytes, int out_array_size) {
   bufferInput = [device newBufferWithBytes:in 
                              length:in_array_size*in_data_size_bytes 
                             options:MTLResourceStorageModeShared];
-  bufferOutput = [device newBufferWithBytes:out 
-                             length:out_array_size*out_data_size_bytes 
+  bufferOutput = [device newBufferWithLength:out_array_size*out_data_size_bytes 
                             options:MTLResourceStorageModeShared];
 }
 

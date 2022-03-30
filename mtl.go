@@ -11,6 +11,7 @@ package gpu
 */
 import "C"
 import (
+	"sync"
 	"unsafe"
 )
 
@@ -26,20 +27,7 @@ func NewMatrix[T GPUType](w, h, d int) *Matrix[T] {
 		W:    w,
 		H:    h,
 		D:    d,
-		Data: make([]T, w*h*d),
-	}
-	return m
-}
-
-func NewMatrixFromData[T GPUType](w, h, d int, data []T) *Matrix[T] {
-	// Store matrix like a display buffer, i.e.
-	// get a whole y row, and index it with x.
-	// so, d, y, x
-	m := &Matrix[T]{
-		W:    w,
-		H:    h,
-		D:    d,
-		Data: data,
+		init: &sync.Once{},
 	}
 	return m
 }
@@ -47,6 +35,15 @@ func NewMatrixFromData[T GPUType](w, h, d int, data []T) *Matrix[T] {
 type Matrix[T GPUType] struct {
 	W, H, D int
 	Data    []T
+	init    *sync.Once
+}
+
+func (m *Matrix[T]) Populate() {
+	m.init.Do(func() {
+		if m.Data == nil {
+			m.Data = make([]T, m.W*m.H*m.D)
+		}
+	})
 }
 
 func (m Matrix[T]) Index(x, y, z int) (i int) {
@@ -57,34 +54,24 @@ func (m Matrix[T]) Index(x, y, z int) (i int) {
 }
 
 func (m *Matrix[T]) Set(x, y, z int, v T) {
+	m.Populate()
 	m.Data[m.Index(x, y, z)] = v
 }
 
 func (m Matrix[T]) Get(x, y, z int) T {
+	m.Populate()
 	return m.Data[m.Index(x, y, z)]
 }
 
 func (m Matrix[T]) Size() int {
-	return len(m.Data)
+	return m.W * m.H * m.D
 }
 
-// Setup the GPU, passing the metal source and the
-// input / output matrices.
-func Setup[TIn, TOut GPUType](source string, input []TIn, output []TOut) {
-	src := C.CString(source)
+// Compile the shader. Only needs to be done once.
+func Compile(shaderCode string) {
+	src := C.CString(shaderCode)
 	defer C.free(unsafe.Pointer(src))
-	C.setup(src)
-	// Create the buffers to store output data.
-	var in unsafe.Pointer
-	if len(input) > 0 {
-		in = unsafe.Pointer(&input[0])
-	}
-	var out unsafe.Pointer
-	if len(output) > 0 {
-		out = unsafe.Pointer(&output[0])
-	}
-	C.createBuffers(in, C.int(dataSizeBytes[TIn]()), C.int(len(input)),
-		out, C.int(dataSizeBytes[TOut]()), C.int(len(output)))
+	C.compile(src)
 }
 
 func dataSizeBytes[T GPUType]() int32 {
@@ -111,6 +98,13 @@ type params struct {
 }
 
 func Run[TIn GPUType, TOut GPUType](input *Matrix[TIn], output *Matrix[TOut]) {
+	// Setup.
+	var in unsafe.Pointer
+	if len(input.Data) > 0 {
+		in = unsafe.Pointer(&input.Data[0])
+	}
+	C.createBuffers(in, C.int(dataSizeBytes[TIn]()), C.int(input.Size()),
+		C.int(dataSizeBytes[TOut]()), C.int(output.Size()))
 	// Convert the Go param struct to its C version.
 	p := params{
 		WIn:  int32(input.W),
@@ -123,6 +117,6 @@ func Run[TIn GPUType, TOut GPUType](input *Matrix[TIn], output *Matrix[TOut]) {
 	cp := (*C.Params)(unsafe.Pointer(&p))
 	// Run.
 	ptr := C.run(cp)
-	output.Data = unsafe.Slice((*TOut)(ptr), len(output.Data))
+	output.Data = unsafe.Slice((*TOut)(ptr), output.Size())
 	return
 }
