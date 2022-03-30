@@ -4,14 +4,12 @@
 #import <Metal/Metal.h>
 
 id<MTLDevice> device;
-id<MTLFunction> addFunction;
 id<MTLComputePipelineState> pipelineState;
 id<MTLCommandQueue> commandQueue;
 
-// TODO: Return a struct that contains error information.
 void setup(char *source) {
   device = MTLCreateSystemDefaultDevice();
-  NSLog(@"Using default device %s", [device.name UTF8String]);
+  // NSLog(@"Using default device %s", [device.name UTF8String]);
 
   // Create library of code.
   NSError *error = nil;
@@ -34,7 +32,7 @@ void setup(char *source) {
     return;
   }
 
-  NSLog(@"%@", [newLibrary functionNames]);
+  //NSLog(@"%@", [newLibrary functionNames]);
 
   // Create a compute pipeline state object.
   pipelineState = [device newComputePipelineStateWithFunction:processFunction
@@ -54,15 +52,13 @@ void setup(char *source) {
 id<MTLBuffer> bufferInput;
 id<MTLBuffer> bufferOutput;
 
-void createBuffers(float* in, int size_in, float* out, int size_out) {
-  int float32Size = 4; // bytes;
-  //bufferInput = [device newBufferWithLength:size_in*float32Size options:MTLResourceStorageModeShared];
+void createBuffers(void* in, int in_data_size_bytes, int in_array_size, 
+    void* out, int out_data_size_bytes, int out_array_size) {
   bufferInput = [device newBufferWithBytes:in 
-                             length:size_in*float32Size 
+                             length:in_array_size*in_data_size_bytes 
                             options:MTLResourceStorageModeShared];
-  //bufferOutput = [device newBufferWithLength:size_out*float32Size options:MTLResourceStorageModeShared];
   bufferOutput = [device newBufferWithBytes:out 
-                             length:size_out*float32Size 
+                             length:out_array_size*out_data_size_bytes 
                             options:MTLResourceStorageModeShared];
 }
 

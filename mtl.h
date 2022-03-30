@@ -12,5 +12,6 @@ typedef struct Params {
 } Params;
 
 void setup(char* source);
-void createBuffers(float* in, int size_in, float* out, int size_out);
+void createBuffers(void* in, int in_data_size_bytes, int in_array_size,
+    void* out, int out_data_size_bytes, int out_array_size);
 void* run(Params *params);

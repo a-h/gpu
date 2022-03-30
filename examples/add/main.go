@@ -11,9 +11,7 @@ import (
 var source string
 
 func main() {
-	gpu.Setup(source)
-
-	input := gpu.NewMatrix(2, 10, 1)
+	input := gpu.NewMatrix[float32](2, 10, 1)
 	// Initialize like:
 	// 0.0 0.0
 	// 1.0 1.0
@@ -25,11 +23,12 @@ func main() {
 		}
 	}
 	// 1 across, 10 down, 1 deep.
-	output := gpu.NewMatrix(1, 10, 1)
-	gpu.CreateBuffers(input, output)
+	output := gpu.NewMatrix[float32](1, 10, 1)
 
-	data := gpu.Run(input, output)
-	for _, summed := range data {
-		fmt.Printf("Summed: %v\n", summed)
+	gpu.Setup(source, input.Data, output.Data)
+	gpu.Run(input, output)
+
+	for y := 0; y < output.H; y++ {
+		fmt.Printf("Summed: %v\n", output.Get(0, y, 0))
 	}
 }

@@ -14,56 +14,92 @@ import (
 	"unsafe"
 )
 
-// Load the source code.
-func Setup(source string) {
-	src := C.CString(source)
-	defer C.free(unsafe.Pointer(src))
-	C.setup(src)
+type GPUType interface {
+	uint8 | uint32 | int32 | float32
 }
 
-func NewMatrix(w, h, d int) *Matrix {
+func NewMatrix[T GPUType](w, h, d int) *Matrix[T] {
 	// Store matrix like a display buffer, i.e.
 	// get a whole y row, and index it with x.
 	// so, d, y, x
-	m := &Matrix{
+	m := &Matrix[T]{
 		W:    w,
 		H:    h,
 		D:    d,
-		Data: make([]float32, w*h*d),
+		Data: make([]T, w*h*d),
 	}
 	return m
 }
 
-type Matrix struct {
-	W, H, D int
-	Data    []float32
+func NewMatrixFromData[T GPUType](w, h, d int, data []T) *Matrix[T] {
+	// Store matrix like a display buffer, i.e.
+	// get a whole y row, and index it with x.
+	// so, d, y, x
+	m := &Matrix[T]{
+		W:    w,
+		H:    h,
+		D:    d,
+		Data: data,
+	}
+	return m
 }
 
-func (m Matrix) Index(x, y, z int) (i int) {
+type Matrix[T GPUType] struct {
+	W, H, D int
+	Data    []T
+}
+
+func (m Matrix[T]) Index(x, y, z int) (i int) {
 	i += z * m.W * m.H
 	i += y * m.W
 	i += x
 	return i
 }
 
-func (m *Matrix) Set(x, y, z int, v float32) {
+func (m *Matrix[T]) Set(x, y, z int, v T) {
 	m.Data[m.Index(x, y, z)] = v
 }
 
-func (m Matrix) Get(x, y, z int) float32 {
+func (m Matrix[T]) Get(x, y, z int) T {
 	return m.Data[m.Index(x, y, z)]
 }
 
-func (m Matrix) Size() int {
+func (m Matrix[T]) Size() int {
 	return len(m.Data)
 }
 
-// Create the buffers to store output data.
-// The output data is a 2D matrix.
-func CreateBuffers(input *Matrix, output *Matrix) {
-	in := (*C.float)(unsafe.Pointer(&input.Data[0]))
-	out := (*C.float)(unsafe.Pointer(&output.Data[0]))
-	C.createBuffers(in, C.int(input.Size()), out, C.int(output.Size()))
+// Setup the GPU, passing the metal source and the
+// input / output matrices.
+func Setup[TIn, TOut GPUType](source string, input []TIn, output []TOut) {
+	src := C.CString(source)
+	defer C.free(unsafe.Pointer(src))
+	C.setup(src)
+	// Create the buffers to store output data.
+	var in unsafe.Pointer
+	if len(input) > 0 {
+		in = unsafe.Pointer(&input[0])
+	}
+	var out unsafe.Pointer
+	if len(output) > 0 {
+		out = unsafe.Pointer(&output[0])
+	}
+	C.createBuffers(in, C.int(dataSizeBytes[TIn]()), C.int(len(input)),
+		out, C.int(dataSizeBytes[TOut]()), C.int(len(output)))
+}
+
+func dataSizeBytes[T GPUType]() int32 {
+	var v T
+	switch any(v).(type) {
+	case uint8:
+		return 1
+	case int32:
+		return 4
+	case uint32:
+		return 4
+	case float32:
+		return 4
+	}
+	panic("unknown data size for GPU type")
 }
 
 // Params matches the definitions in mtl.m etc.
@@ -74,7 +110,7 @@ type params struct {
 	WOut, HOut, DOut int32
 }
 
-func Run(input, output *Matrix) []float32 {
+func Run[TIn GPUType, TOut GPUType](input *Matrix[TIn], output *Matrix[TOut]) {
 	// Convert the Go param struct to its C version.
 	p := params{
 		WIn:  int32(input.W),
@@ -87,5 +123,6 @@ func Run(input, output *Matrix) []float32 {
 	cp := (*C.Params)(unsafe.Pointer(&p))
 	// Run.
 	ptr := C.run(cp)
-	return unsafe.Slice((*float32)(ptr), len(output.Data))
+	output.Data = unsafe.Slice((*TOut)(ptr), len(output.Data))
+	return
 }
