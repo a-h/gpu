@@ -1,3 +1,4 @@
 .ccls-cache
 examples/add/add
 examples/grayscale/grayscale
+examples/mandelbrot/mandelbrot

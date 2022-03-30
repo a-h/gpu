@@ -100,10 +100,12 @@ type params struct {
 func Run[TIn GPUType, TOut GPUType](input *Matrix[TIn], output *Matrix[TOut]) {
 	// Setup.
 	var in unsafe.Pointer
+	var inputSize int
 	if len(input.Data) > 0 {
 		in = unsafe.Pointer(&input.Data[0])
+		inputSize = input.Size()
 	}
-	C.createBuffers(in, C.int(dataSizeBytes[TIn]()), C.int(input.Size()),
+	C.createBuffers(in, C.int(dataSizeBytes[TIn]()), C.int(inputSize),
 		C.int(dataSizeBytes[TOut]()), C.int(output.Size()))
 	// Convert the Go param struct to its C version.
 	p := params{
