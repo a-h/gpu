@@ -23,8 +23,6 @@ kernel void process(device const Params* p,
     return;
   }
 
-  // Since we know we're in the first column...
-  // we can process the whole row.
   int input_index = idx(gid.x, gid.y, gid.z,
     p->w_in, p->h_in, p->d_in);
 
